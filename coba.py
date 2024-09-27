@@ -1,4 +1,8 @@
 from flask import Flask, render_template
+import sqlite3
+
+# Nama Database
+DATABASE = 'app.db'
 
 app = Flask(__name__)
 
@@ -52,3 +56,53 @@ def blog(id):
         )
     except IndexError:
         return "Mohon maaf, halaman tidak ditemukan!", 404
+    
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    return conn
+
+def close_db(conn):
+    conn.close()
+
+@app.cli.command('init-db')
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS blogs(
+                   id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                   judul TEXT NOT NULL,
+                   isi TEXT NOT NULL);
+        ''')
+    conn.commit()
+    close_db(conn)
+    print('Database telah dibuat')
+
+@app.cli.command('import-data')
+def import_data():
+    conn = get_db()
+    cursor = conn.cursor() # sambungan
+    for page in pages:
+        cursor.execute('''
+            INSERT INTO blogs(judul,isi) VALUES(?,?);
+        ''', (page['judul'], page['isi']))
+    conn.commit()
+    close_db(conn)
+    print('Data Telah DIIMPORT')
+
+@app.route('/new_blog/<int:id>')
+def new_blog(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT judul, isi FROM blogs WHERE id=? ;
+    ''', (id,))
+    blog = cursor.fetchone()
+    if blog :
+        return render_template(
+            'coba.html',
+            judul=blog[0],
+            isi=blog[1]
+        )
+    else : return 'Halaman tidak ditemukan!', 404
